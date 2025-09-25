@@ -32,7 +32,8 @@ usage() {
 sanitize_tmux_component() {
     local input="$1"
     # Replace disallowed characters with dashes to keep tmux naming happy
-    echo "$input" | tr -c '[:alnum:]._-' '-'
+    # printf avoids adding a newline that would otherwise become a trailing dash
+    printf '%s' "$input" | tr -c '[:alnum:]._-' '-'
 }
 
 # Create necessary directories
