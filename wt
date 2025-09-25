@@ -2,10 +2,10 @@
 
 # wt - Create git worktrees within sesh sessions
 # Usage: 
-#   wt [git_directory]           # Create/find worktree from specified git directory
-#   wt                          # Create/find worktree from current directory
-#   source wt [git_directory]   # Create/find worktree and cd to it
-#   . wt [git_directory]        # Same as source wt
+#   wt [suffix]                  # Create/find worktree from current directory, optionally append suffix
+#   wt                           # Create/find worktree from current directory
+#   source wt [suffix]           # Create/find worktree and cd to it
+#   . wt [suffix]                # Same as source wt
 set -e
 
 # Check if SESH environment variable is set
@@ -33,7 +33,7 @@ check_git_repo() {
     if ! git rev-parse --git-dir > /dev/null 2>&1; then
         cd "$original_dir"
         echo "Error: '$git_dir' is not in a git repository" >&2
-        echo "Please specify a directory within a git repo" >&2
+        echo "Please run this command from within a git repo" >&2
         exit 1
     fi
     
@@ -56,8 +56,19 @@ get_repo_basename() {
 # Main function
 main() {
     # Parse arguments
-    local git_dir="${1:-$PWD}"
-    
+    local git_dir="$PWD"
+    local suffix=""
+
+    if [ "$#" -gt 1 ]; then
+        echo "Error: Too many arguments" >&2
+        echo "Usage: wt [suffix]" >&2
+        exit 1
+    fi
+
+    if [ "$#" -eq 1 ]; then
+        suffix="$1"
+    fi
+
     # Check prerequisites
     check_sesh_env
     check_git_repo "$git_dir"
@@ -66,6 +77,9 @@ main() {
     REPO_BASENAME=$(get_repo_basename "$git_dir")
     BRANCH_NAME="${USER}-${SESH}"
     WORKTREE_PATH="${HOME}/sesh/${SESH}/${REPO_BASENAME}-${BRANCH_NAME}"
+    if [ -n "$suffix" ]; then
+        WORKTREE_PATH="${WORKTREE_PATH}-${suffix}"
+    fi
     
     echo "🔍 Checking for existing worktree..." >&2
     echo "   Git directory: $git_dir" >&2
