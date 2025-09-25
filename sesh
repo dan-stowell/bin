@@ -68,33 +68,13 @@ create_session() {
     local session_command="$5"
     
     echo "🖥️  Creating tmux session '$tmux_session_name'..."
-    tmux new-session -d -s "$tmux_session_name" -c "$session_path" || {
+    printf -v asciinema_cmd "env SESH=%q asciinema rec --append %q --command %q" \
+        "$base_session_name" "$recording_file" "$session_command"
+    echo "🎬 Starting asciinema recording..."
+    tmux new-session -d -s "$tmux_session_name" -c "$session_path" "$asciinema_cmd" || {
         echo "Error: Failed to create tmux session"
         exit 1
     }
-    
-    # Export SESH environment variable (directory name stays consistent)
-    printf -v export_sesh_cmd "export SESH=%q" "$base_session_name"
-    tmux send-keys -t "$tmux_session_name" "$export_sesh_cmd" Enter
-
-    # Start asciinema recording with the requested command
-    echo "🎬 Starting asciinema recording..."
-    printf -v asciinema_cmd "asciinema rec --append %q --command %q" "$recording_file" "$session_command"
-    tmux send-keys -t "$tmux_session_name" "$asciinema_cmd" Enter
-    
-    # Give asciinema a moment to start
-    sleep 1
-    
-    # Set up the environment in the tmux session
-    tmux send-keys -t "$tmux_session_name" "echo '🎉 Development session $tmux_session_name started!'" Enter
-    tmux send-keys -t "$tmux_session_name" "printf '📁 Working in: '; pwd" Enter
-    printf -v recording_echo "printf '🎬 Recording to: %%s\\n' %q" "$recording_file"
-    tmux send-keys -t "$tmux_session_name" "$recording_echo" Enter
-    printf -v command_echo "printf '⚙️ Command: %%s\\n' %q" "$session_command"
-    tmux send-keys -t "$tmux_session_name" "$command_echo" Enter
-    printf -v sesh_echo 'echo "🔧 SESH environment variable set to: $SESH"'
-    tmux send-keys -t "$tmux_session_name" "$sesh_echo" Enter
-    tmux send-keys -t "$tmux_session_name" "echo ''" Enter
 }
 
 # Main function
@@ -130,7 +110,7 @@ main() {
     
     # Set paths
     local sesh_path="$SESH_BASE_DIR/$SESSION_NAME"
-    local recording_file="$RECORDINGS_DIR/$SESSION_NAME.cast"
+    local recording_file="$RECORDINGS_DIR/${SESSION_NAME}-${command_component}.cast"
     
     # Scenario 1: If tmux session already exists, attach to it
     if session_exists "$TMUX_SESSION_NAME"; then
