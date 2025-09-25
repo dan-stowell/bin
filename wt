@@ -76,7 +76,7 @@ main() {
     # Get repository basename
     REPO_BASENAME=$(get_repo_basename "$git_dir")
     BRANCH_NAME="${USER}-${SESH}"
-    WORKTREE_PATH="${HOME}/sesh/${SESH}/${REPO_BASENAME}-${BRANCH_NAME}"
+    WORKTREE_PATH="${HOME}/sesh/${REPO_BASENAME}"
     if [ -n "$suffix" ]; then
         WORKTREE_PATH="${WORKTREE_PATH}-${suffix}"
     fi
