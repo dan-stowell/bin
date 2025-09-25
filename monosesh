@@ -1,0 +1,128 @@
+#!/bin/bash
+
+# sesh - Create isolated development session with recording
+set -e
+
+# Configuration
+WORKTREE_BASE_DIR="$HOME/worktree"
+RECORDINGS_DIR="$HOME/rec"
+
+# Generate unique session name using timestamp and random string
+generate_session_name() {
+    local timestamp=$(date +%Y%m%dH%H)
+    local random=$(grep -E '^[a-z]{3,5}$' /usr/share/dict/words | sort -R | head -1)
+    local raw_session_name="`basename $PWD`-${USER}-${timestamp}-${random}"
+    local session_name="${raw_session_name//[:.]/-}"
+    echo "$session_name"
+}
+
+# Check if we're already in a git repository
+check_git_repo() {
+    if ! git rev-parse --git-dir > /dev/null 2>&1; then
+        echo "Error: Not in a git repository. Please run this script from within a git repo."
+        exit 1
+    fi
+}
+
+# Create necessary directories
+setup_directories() {
+    mkdir -p "$WORKTREE_BASE_DIR"
+    mkdir -p "$RECORDINGS_DIR"
+}
+
+# Check for required tools
+check_dependencies() {
+    local deps=("git" "tmux" "asciinema")
+    for dep in "${deps[@]}"; do
+        if ! command -v "$dep" &> /dev/null; then
+            echo "Error: $dep is not installed or not in PATH"
+            exit 1
+        fi
+    done
+}
+
+# Main function
+main() {
+    echo "🚀 Setting up development session..."
+    
+    # Check dependencies and git repo
+    check_dependencies
+    check_git_repo
+    setup_directories
+    
+    # Generate unique session name
+    SESSION_NAME=$(generate_session_name)
+    echo "📝 Session name: $SESSION_NAME"
+    
+    # Set paths
+    WORKTREE_PATH="$WORKTREE_BASE_DIR/$SESSION_NAME"
+    RECORDING_FILE="$RECORDINGS_DIR/$SESSION_NAME.cast"
+    
+    echo "🌳 Creating git branch and worktree..."
+    git worktree add -b "$SESSION_NAME" "$WORKTREE_PATH" || {
+        echo "Error: Failed to create worktree at $WORKTREE_PATH"
+        exit 1
+    }
+    
+    # Create tmux session
+    echo "🖥️  Creating tmux session..."
+    tmux new-session -d -s "$SESSION_NAME" -c "$WORKTREE_PATH" || {
+        echo "Error: Failed to create tmux session"
+        git worktree remove "$WORKTREE_PATH" 2>/dev/null
+        exit 1
+    }
+    
+    # Start asciinema recording in the tmux session
+    echo "🎬 Starting asciinema recording..."
+    tmux send-keys -t "$SESSION_NAME" "asciinema rec '$RECORDING_FILE'" Enter
+    
+    # Give asciinema a moment to start
+    sleep 1
+    
+    # Set up the environment in the tmux session
+    tmux send-keys -t "$SESSION_NAME" "echo '🎉 Development session $SESSION_NAME started!'" Enter
+    tmux send-keys -t "$SESSION_NAME" "printf '📁 Working in: '; pwd" Enter
+    tmux send-keys -t "$SESSION_NAME" "echo '🎬 Recording to: $RECORDING_FILE'" Enter
+    tmux send-keys -t "$SESSION_NAME" "echo ''" Enter
+    
+    # Attach to the tmux session
+    echo "✅ Session setup complete!"
+    echo ""
+    echo "Session details:"
+    echo "  Name: $SESSION_NAME"
+    echo "  Worktree: $WORKTREE_PATH"
+    echo "  Recording: $RECORDING_FILE"
+    echo ""
+    echo "📎 Attaching to tmux session..."
+    echo "   (Use 'Ctrl+B, d' to detach, 'exit' to end recording and session)"
+    echo ""
+    
+    # Attach to the session
+    tmux attach-session -t "$SESSION_NAME"
+    
+    # Cleanup message (shown after detaching)
+    echo ""
+    echo "📋 Session '$SESSION_NAME' detached."
+    echo "   To reattach: tmux attach-session -t '$SESSION_NAME'"
+    echo "   To end session: tmux kill-session -t '$SESSION_NAME'"
+    echo "   Recording file: $RECORDING_FILE"
+}
+
+# Cleanup function for interrupted sessions
+cleanup_on_interrupt() {
+    echo ""
+    echo "🛑 Interrupt received. Cleaning up..."
+    if [ -n "$SESSION_NAME" ]; then
+        tmux kill-session -t "$SESSION_NAME" 2>/dev/null || true
+        if [ -d "$WORKTREE_PATH" ]; then
+            git worktree remove "$WORKTREE_PATH" 2>/dev/null || true
+        fi
+    fi
+    exit 130
+}
+
+# Set up interrupt handler
+trap cleanup_on_interrupt INT
+
+# Run main function
+main "$@"
