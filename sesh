@@ -14,7 +14,7 @@ SESSION_COMMAND="zsh"
 
 # Usage function
 usage() {
-    echo "Usage: sesh <session-name> [command]"
+    echo "Usage: sesh <session-name> [command] [directory]"
     echo ""
     echo "Creates or attaches to a tmux session using the given directory name and optional command."
     echo ""
@@ -23,6 +23,9 @@ usage() {
     echo "  - If tmux session exists: attach to it"
     echo "  - If directory \$HOME/sesh/<name> exists: create new tmux session there"
     echo "  - If neither exists: create directory and new tmux session"
+    echo "  - Optional directory overrides the default session path"
+    echo "    (defaults to $SESH_BASE_DIR/<name>)"
+    echo "    - Relative paths resolve under the default session directory"
     echo ""
     echo "New sessions automatically start asciinema recording running the chosen command."
     exit 1
@@ -80,14 +83,15 @@ create_session() {
 # Main function
 main() {
     # Check arguments
-    if [ $# -lt 1 ] || [ $# -gt 2 ]; then
-        echo "Error: Please provide a session name and optional command"
+    if [ $# -lt 1 ] || [ $# -gt 3 ]; then
+        echo "Error: Please provide a session name and optional command and directory"
         echo ""
         usage
     fi
     
     SESSION_NAME="$1"
     SESSION_COMMAND="${2:-zsh}"
+    local custom_dir="${3:-}"
 
     local command_component
     command_component=$(sanitize_tmux_component "$SESSION_COMMAND")
@@ -109,7 +113,26 @@ main() {
     setup_directories
     
     # Set paths
-    local sesh_path="$SESH_BASE_DIR/$SESSION_NAME"
+    local default_session_dir="$SESH_BASE_DIR/$SESSION_NAME"
+    local sesh_path
+    if [ -n "$custom_dir" ]; then
+        case "$custom_dir" in
+            ~)
+                sesh_path="$HOME"
+                ;;
+            ~/*)
+                sesh_path="$HOME/${custom_dir:2}"
+                ;;
+            /*)
+                sesh_path="$custom_dir"
+                ;;
+            *)
+                sesh_path="$default_session_dir/$custom_dir"
+                ;;
+        esac
+    else
+        sesh_path="$default_session_dir"
+    fi
     local recording_file="$RECORDINGS_DIR/${SESSION_NAME}-${command_component}.cast"
     
     # Scenario 1: If tmux session already exists, attach to it
@@ -130,6 +153,13 @@ main() {
     else
         echo "📁 Using existing directory '$sesh_path'..."
     fi
+
+    local resolved_sesh_path
+    if ! resolved_sesh_path=$(cd "$sesh_path" 2>/dev/null && pwd); then
+        echo "Error: Unable to resolve session directory at $sesh_path"
+        exit 1
+    fi
+    sesh_path="$resolved_sesh_path"
     
     # Create tmux session with recording
     create_session "$TMUX_SESSION_NAME" "$sesh_path" "$recording_file" "$SESSION_NAME" "$SESSION_COMMAND"
