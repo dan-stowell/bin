@@ -1,11 +1,10 @@
 #!/bin/bash
 
 # wt - Create git worktrees within sesh sessions
-# Usage: 
-#   wt [suffix]                  # Create/find worktree from current directory, optionally append suffix
-#   wt                           # Create/find worktree from current directory
-#   source wt [suffix]           # Create/find worktree and cd to it
-#   . wt [suffix]                # Same as source wt
+# Usage:
+#   wt [path]             # Create/find worktree from current directory or specified path
+#   source wt [path]      # Create/find worktree and cd to it
+#   . wt [path]           # Same as source wt
 set -e
 
 # Check if SESH environment variable is set
@@ -57,16 +56,19 @@ get_repo_basename() {
 main() {
     # Parse arguments
     local git_dir="$PWD"
-    local suffix=""
 
     if [ "$#" -gt 1 ]; then
         echo "Error: Too many arguments" >&2
-        echo "Usage: wt [suffix]" >&2
+        echo "Usage: wt [path]" >&2
         exit 1
     fi
 
     if [ "$#" -eq 1 ]; then
-        suffix="$1"
+        local git_dir_candidate="$1"
+        if ! git_dir=$(cd "$git_dir_candidate" 2>/dev/null && pwd); then
+            echo "Error: Directory '$git_dir_candidate' does not exist or is not accessible" >&2
+            exit 1
+        fi
     fi
 
     # Check prerequisites
@@ -76,14 +78,8 @@ main() {
     # Get repository basename
     REPO_BASENAME=$(get_repo_basename "$git_dir")
     BRANCH_NAME="${USER}-${SESH}"
-    if [ -n "$suffix" ]; then
-        BRANCH_NAME="${BRANCH_NAME}-${suffix}"
-    fi
     WORKTREE_PATH="${HOME}/sesh/${SESH}/${REPO_BASENAME}"
-    if [ -n "$suffix" ]; then
-        WORKTREE_PATH="${WORKTREE_PATH}-${suffix}"
-    fi
-    
+
     echo "🔍 Checking for existing worktree..." >&2
     echo "   Git directory: $git_dir" >&2
     echo "   Repository: $REPO_BASENAME" >&2
