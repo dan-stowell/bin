@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-aider --commit --no-gitignore --model openrouter/openai/gpt-oss-20b:free
+aider --commit --no-gitignore --model openrouter/mistralai/mistral-small
