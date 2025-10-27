@@ -1,12 +1,10 @@
 #!/bin/bash
 
-# sesh - Create isolated development session with recording
+# sesh - Create isolated development session
 set -e
 
 # Configuration
 SESH_BASE_DIR="$HOME/sesh"
-RECORDINGS_DIR="$HOME/rec"
-
 # Session metadata (populated in main for signal handling)
 SESSION_NAME=""
 TMUX_SESSION_NAME=""
@@ -27,7 +25,6 @@ usage() {
     echo "    (defaults to $SESH_BASE_DIR/<name>)"
     echo "    - Relative paths resolve under the default session directory"
     echo ""
-    echo "New sessions automatically start asciinema recording running the chosen command."
     exit 1
 }
 
@@ -42,12 +39,11 @@ sanitize_tmux_component() {
 # Create necessary directories
 setup_directories() {
     mkdir -p "$SESH_BASE_DIR"
-    mkdir -p "$RECORDINGS_DIR"
 }
 
 # Check for required tools
 check_dependencies() {
-    local deps=("tmux" "asciinema")
+    local deps=("tmux")
     for dep in "${deps[@]}"; do
         if ! command -v "$dep" &> /dev/null; then
             echo "Error: $dep is not installed or not in PATH"
@@ -62,19 +58,17 @@ session_exists() {
     tmux has-session -t "$tmux_session_name" 2>/dev/null
 }
 
-# Create new tmux session with recording
+# Create new tmux session
 create_session() {
     local tmux_session_name="$1"
     local session_path="$2"
-    local recording_file="$3"
-    local base_session_name="$4"
-    local session_command="$5"
+    local base_session_name="$3"
+    local session_command="$4"
     
     echo "🖥️  Creating tmux session '$tmux_session_name'..."
-    printf -v asciinema_cmd "env SESH=%q asciinema rec --append %q --command %q" \
-        "$base_session_name" "$recording_file" "$session_command"
-    echo "🎬 Starting asciinema recording..."
-    tmux new-session -d -s "$tmux_session_name" -c "$session_path" "$asciinema_cmd" || {
+    printf -v tmux_cmd "env SESH=%q bash -lc %q" \
+        "$base_session_name" "$session_command"
+    tmux new-session -d -s "$tmux_session_name" -c "$session_path" "$tmux_cmd" || {
         echo "Error: Failed to create tmux session"
         exit 1
     }
@@ -133,8 +127,6 @@ main() {
     else
         sesh_path="$default_session_dir"
     fi
-    local recording_file="$RECORDINGS_DIR/${SESSION_NAME}-${command_component}.cast"
-    
     # Scenario 1: If tmux session already exists, attach to it
     if session_exists "$TMUX_SESSION_NAME"; then
         echo "📎 Found existing tmux session '$TMUX_SESSION_NAME'. Attaching..."
@@ -161,8 +153,8 @@ main() {
     fi
     sesh_path="$resolved_sesh_path"
     
-    # Create tmux session with recording
-    create_session "$TMUX_SESSION_NAME" "$sesh_path" "$recording_file" "$SESSION_NAME" "$SESSION_COMMAND"
+    # Create tmux session
+    create_session "$TMUX_SESSION_NAME" "$sesh_path" "$SESSION_NAME" "$SESSION_COMMAND"
     
     # Show session details
     echo "✅ Session setup complete!"
@@ -171,12 +163,11 @@ main() {
     echo "  Directory name (SESH): $SESSION_NAME"
     echo "  Tmux session: $TMUX_SESSION_NAME"
     echo "  Directory: $sesh_path"
-    echo "  Recording: $recording_file"
     echo "  Command: $SESSION_COMMAND"
     echo "  Environment: SESH=$SESSION_NAME"
     echo ""
     echo "📎 Attaching to tmux session..."
-    echo "   (Use 'Ctrl+B, d' to detach, 'exit' to end recording and session)"
+    echo "   (Use 'Ctrl+B, d' to detach, 'exit' to end the session)"
     echo ""
     
     # Attach to the session
@@ -187,7 +178,6 @@ main() {
     echo "📋 Session '$TMUX_SESSION_NAME' detached."
     echo "   To reattach: sesh '$SESSION_NAME' '$SESSION_COMMAND'"
     echo "   To end session: tmux kill-session -t '$TMUX_SESSION_NAME'"
-    echo "   Recording file: $recording_file"
     echo "   Session directory: $sesh_path"
 }
 

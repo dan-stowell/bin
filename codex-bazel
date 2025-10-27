@@ -1,0 +1,7 @@
+container run \
+	--interactive \
+	--tty \
+	--rm \
+	--volume $(pwd):/workspace \
+	--env OPENAI_API_KEY="$CODEX_BAZEL_API_KEY" \
+	codex
