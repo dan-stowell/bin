@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+if git diff --quiet && git diff --cached --quiet; then
+  echo "No changes to stash"
+  exit 0
+fi
+
+git add -A
+
+DIFF=$(git diff --cached)
+
+STASH_MSG=$(echo "$DIFF" | llm --model openrouter/mistralai/mistral-small --system "Generate a concise stash message for this git diff. Return only the stash message itself, nothing else.")
+
+if [ $? -ne 0 ] || [ -z "$STASH_MSG" ]; then
+  echo "Error: Failed to generate stash message"
+  exit 1
+fi
+
+git stash -m "$STASH_MSG"
