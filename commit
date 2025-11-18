@@ -1,2 +1,25 @@
 #!/usr/bin/env bash
-aider --commit --no-gitignore --model openrouter/mistralai/mistral-small
+
+# Check if there are any changes
+if git diff --quiet && git diff --cached --quiet; then
+  echo "No changes to commit"
+  exit 0
+fi
+
+# Stage all changes
+git add -A
+
+# Get the diff
+DIFF=$(git diff --cached)
+
+# Generate commit message using llm
+COMMIT_MSG=$(echo "$DIFF" | llm --model openrouter/mistralai/mistral-small --system "Generate a concise commit message for this git diff. Return only the commit message itself, nothing else.")
+
+# Check if llm command succeeded and message is not empty
+if [ $? -ne 0 ] || [ -z "$COMMIT_MSG" ]; then
+  echo "Error: Failed to generate commit message"
+  exit 1
+fi
+
+# Commit with the generated message
+git commit -m "$COMMIT_MSG"
