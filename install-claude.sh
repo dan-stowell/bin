@@ -3,11 +3,25 @@
 set -e
 
 # Parse command line arguments
-TARGET="$1"  # Optional target parameter
+FORCE_FLAG=""
+TARGET=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --force)
+            FORCE_FLAG="--force"
+            shift
+            ;;
+        *)
+            TARGET="$1"
+            shift
+            ;;
+    esac
+done
 
 # Validate target if provided
 if [[ -n "$TARGET" ]] && [[ ! "$TARGET" =~ ^(stable|latest|[0-9]+\.[0-9]+\.[0-9]+(-[^[:space:]]+)?)$ ]]; then
-    echo "Usage: $0 [stable|latest|VERSION]" >&2
+    echo "Usage: $0 [--force] [stable|latest|VERSION]" >&2
     exit 1
 fi
 
@@ -139,11 +153,20 @@ chmod +x "$binary_path"
 
 # Run claude install to set up launcher and shell integration
 echo "Setting up Claude Code..."
-"$binary_path" install ${TARGET:+"$TARGET"}
+if "$binary_path" install ${FORCE_FLAG} ${TARGET:+"$TARGET"}; then
+    # Clean up downloaded file
+    rm -f "$binary_path"
 
-# Clean up downloaded file
-rm -f "$binary_path"
+    echo ""
+    echo "✅ Installation complete!"
+    echo ""
+else
+    exit_code=$?
+    # Clean up downloaded file
+    rm -f "$binary_path"
 
-echo ""
-echo "✅ Installation complete!"
-echo ""
+    echo ""
+    echo "❌ Installation failed with exit code $exit_code"
+    echo ""
+    exit $exit_code
+fi
