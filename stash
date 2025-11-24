@@ -13,6 +13,9 @@ DIFF=$(git diff --cached)
 
 STASH_MSG=$(echo "$DIFF" | llm --model "$MODEL" --system "Generate a concise stash message for this git diff. Return only the stash message itself, nothing else.")
 
+STASH_MSG="${STASH_MSG#\"}"
+STASH_MSG="${STASH_MSG%\"}"
+
 if [ $? -ne 0 ] || [ -z "$STASH_MSG" ]; then
   echo "Error: Failed to generate stash message"
   exit 1
