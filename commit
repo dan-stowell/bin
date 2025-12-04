@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+MODEL="openrouter/qwen/qwen2.5-coder-7b-instruct"
+#XXX MODEL="openrouter/mistralai/mistral-small"
+
 git add -A
 
 if git diff --quiet && git diff --cached --quiet; then
@@ -9,7 +12,7 @@ fi
 
 DIFF=$(git diff --cached)
 
-COMMIT_MSG=$(echo "$DIFF" | llm --model openrouter/mistralai/mistral-small --system "Generate a concise commit message for this git diff. Return only the commit message itself, nothing else.")
+COMMIT_MSG=$(echo "$DIFF" | llm --model "$MODEL" --system "Generate a concise commit message for this git diff. Return only the commit message itself, nothing else.")
 
 COMMIT_MSG="${COMMIT_MSG#\"}"
 COMMIT_MSG="${COMMIT_MSG%\"}"
