@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-MODEL="openrouter/qwen/qwen2.5-coder-7b-instruct"
+MODEL="openrouter/mistralai/devstral-small"
 #XXX MODEL="openrouter/mistralai/mistral-small"
 
 git add -A
